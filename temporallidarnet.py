@@ -19,9 +19,10 @@ import tensorflow as tf
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Flatten, Dense, Conv1D, BatchNormalization, TimeDistributed, LSTM, Reshape
 from tensorflow.keras.losses import huber
 from tensorflow.keras.optimizers import Adam
-from neuralnetworks import *
 
 # Check GPU availability - You don't need a gpu to train this model
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
