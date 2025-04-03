@@ -21,6 +21,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from tensorflow.keras.losses import huber
 from tensorflow.keras.optimizers import Adam
+from neuralnetworks import *
 
 # Check GPU availability - You don't need a gpu to train this model
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
@@ -182,18 +183,16 @@ print(f'Test Data(servo, speed): {test_servo.shape}, {test_speed.shape}')
 num_lidar_range_values = len(lidar[0])
 print(f'num_lidar_range_values: {num_lidar_range_values}')
 
-model = tf.keras.Sequential([
-    tf.keras.layers.Conv1D(filters=24, kernel_size=10, strides=4, activation='relu', input_shape=(num_lidar_range_values, 1)),
-    tf.keras.layers.Conv1D(filters=36, kernel_size=8, strides=4, activation='relu'),
-    tf.keras.layers.Conv1D(filters=48, kernel_size=4, strides=2, activation='relu'),
-    tf.keras.layers.Conv1D(filters=64, kernel_size=3, activation='relu'),
-    tf.keras.layers.Conv1D(filters=64, kernel_size=3, activation='relu'),
-    tf.keras.layers.Flatten(),
-    tf.keras.layers.Dense(100, activation='relu'),
-    tf.keras.layers.Dense(50, activation='relu'),
-    tf.keras.layers.Dense(10, activation='relu'),
-    tf.keras.layers.Dense(2, activation='tanh')
-])
+print(np.shape(lidar))
+lidartest = tf.stack(np.transpose([[i, i, i] for i in lidar], (0, 2, 1)))
+print("Shapetest"+str(np.shape(lidartest)))
+lidar = tf.stack([[i, i, i] for i in lidar])
+lidar = tf.reshape(lidar, [-1, 3, 1080, 1])
+print("Shape2"+str(np.shape(lidar)))
+# lidar = lidartest
+print(num_lidar_range_values)
+
+model = pilotnet_x3_time_distributed(num_lidar_range_values)
 
 #======================================================
 # Model Compilation
@@ -207,8 +206,10 @@ print(model.summary())
 # Model Fit
 #======================================================
 start_time = time.time()
+print("Shape", tf.shape(lidar))
+print("Expected", )
 history = model.fit(lidar, np.concatenate((servo[:, np.newaxis], speed[:, np.newaxis]), axis=1),
-                    epochs=num_epochs, batch_size=batch_size, validation_data=(test_lidar, test_data))
+                    epochs=num_epochs, batch_size=2879, validation_data=(test_lidar, test_data))
 
 print(f'=============>{int(time.time() - start_time)} seconds<=============')
 
