@@ -186,7 +186,20 @@ print(f'num_lidar_range_values: {num_lidar_range_values}')
 lidar = tf.stack([[i, i, i] for i in lidar])
 test_lidar = tf.stack([[i, i, i] for i in test_lidar])
 
-model = pilotnet_x3_time_distributed(num_lidar_range_values)
+model = tf.keras.Sequential([
+    tf.keras.layers.BatchNormalization(epsilon=0.001, axis=-1, input_shape=(3, num_lidar_range_values, 1)),
+    tf.keras.layers.TimeDistributed(Conv1D(filters=24, kernel_size=5, strides=2, activation="relu", padding='same')),
+    tf.keras.layers.TimeDistributed(Conv1D(filters=36, kernel_size=5, strides=2, activation="relu", padding='same')),
+    tf.keras.layers.TimeDistributed(Conv1D(filters=48, kernel_size=5, strides=2, activation="relu", padding='same')),
+    tf.keras.layers.TimeDistributed(Conv1D(filters=64, kernel_size=3, strides=1, activation="relu", padding='same')),
+    tf.keras.layers.TimeDistributed(Conv1D(filters=64, kernel_size=3, strides=1, activation="relu", padding='same')),
+    tf.keras.layers.TimeDistributed(Flatten()),
+    tf.keras.layers.LSTM(32, return_sequences=True),
+    tf.keras.layers.LSTM(32, return_sequences=True),
+    tf.keras.layers.LSTM(32, return_sequences=True),
+    tf.keras.layers.LSTM(32),
+    tf.keras.layers.Dense(2)
+    ])
 
 #======================================================
 # Model Compilation
