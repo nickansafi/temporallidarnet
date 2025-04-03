@@ -184,8 +184,17 @@ print(f'Test Data(servo, speed): {test_servo.shape}, {test_speed.shape}')
 num_lidar_range_values = len(lidar[0])
 print(f'num_lidar_range_values: {num_lidar_range_values}')
 
-lidar = tf.stack([[i, i, i] for i in lidar])
-test_lidar = tf.stack([[i, i, i] for i in test_lidar])
+oldlidar = tf.stack([[i, i, i] for i in lidar])
+oldtest_lidar = tf.stack([[i, i, i] for i in test_lidar])
+newlidar = []
+try:
+    for i in range(len(lidar)-189):
+        newlidar.append([lidar[i], lidar[i+62], lidar[i+125]])
+except:
+    raise ValueError("Wrong timesteps.")
+newlidar = tf.stack(newlidar)
+lidar = newlidar
+test_lidar = newlidar
 
 model = tf.keras.Sequential([
     tf.keras.layers.BatchNormalization(epsilon=0.001, axis=-1, input_shape=(3, num_lidar_range_values, 1)),
@@ -214,7 +223,9 @@ print(model.summary())
 # Model Fit
 #======================================================
 start_time = time.time()
-history = model.fit(lidar, np.concatenate((servo[:, np.newaxis], speed[:, np.newaxis]), axis=1),
+ydata = np.concatenate((servo[:, np.newaxis], speed[:, np.newaxis]), axis=1)[189:]
+test_data = ydata
+history = model.fit(lidar, ydata,
                     epochs=num_epochs, batch_size=batch_size, validation_data=(test_lidar, test_data),)
 
 print(f'=============>{int(time.time() - start_time)} seconds<=============')
