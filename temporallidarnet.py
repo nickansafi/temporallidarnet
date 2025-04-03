@@ -183,14 +183,8 @@ print(f'Test Data(servo, speed): {test_servo.shape}, {test_speed.shape}')
 num_lidar_range_values = len(lidar[0])
 print(f'num_lidar_range_values: {num_lidar_range_values}')
 
-print(np.shape(lidar))
-lidartest = tf.stack(np.transpose([[i, i, i] for i in lidar], (0, 2, 1)))
-print("Shapetest"+str(np.shape(lidartest)))
 lidar = tf.stack([[i, i, i] for i in lidar])
-lidar = tf.reshape(lidar, [-1, 3, 1080, 1])
-print("Shape2"+str(np.shape(lidar)))
-# lidar = lidartest
-print(num_lidar_range_values)
+test_lidar = tf.stack([[i, i, i] for i in test_lidar])
 
 model = pilotnet_x3_time_distributed(num_lidar_range_values)
 
@@ -206,10 +200,8 @@ print(model.summary())
 # Model Fit
 #======================================================
 start_time = time.time()
-print("Shape", tf.shape(lidar))
-print("Expected", )
 history = model.fit(lidar, np.concatenate((servo[:, np.newaxis], speed[:, np.newaxis]), axis=1),
-                    epochs=num_epochs, batch_size=2879, validation_data=(test_lidar, test_data))
+                    epochs=num_epochs, batch_size=batch_size, validation_data=(test_lidar, test_data),)
 
 print(f'=============>{int(time.time() - start_time)} seconds<=============')
 
@@ -258,126 +250,130 @@ print(f"Servo Test Loss: {servo_test_loss}")
 #======================================================
 # Save non-quantized model
 converter = tf.lite.TFLiteConverter.from_keras_model(model)
+converter.optimizations = [tf.lite.Optimize.DEFAULT]
+converter.experimental_new_converter=True
+converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS,
+tf.lite.OpsSet.SELECT_TF_OPS]
 tflite_model = converter.convert()
 tflite_model_path = './Models/' + model_name + "_noquantized.tflite"
 with open(tflite_model_path, 'wb') as f:
     f.write(tflite_model)
     print(f"{model_name}_noquantized.tflite is saved.")
 
-# Save int8 quantized model
-rep_32 = lidar.astype(np.float32)
-rep_32 = np.expand_dims(rep_32, -1)
-dataset = tf.data.Dataset.from_tensor_slices(rep_32)
+# # Save int8 quantized model
+# rep_32 = lidar.astype(np.float32)
+# rep_32 = np.expand_dims(rep_32, -1)
+# dataset = tf.data.Dataset.from_tensor_slices(rep_32)
 
-def representative_data_gen():
-    for input_value in dataset.batch(len(lidar)).take(rep_32.shape[0]):
-        yield [input_value]
+# def representative_data_gen():
+#     for input_value in dataset.batch(len(lidar)).take(rep_32.shape[0]):
+#         yield [input_value]
 
-converter.optimizations = [tf.lite.Optimize.DEFAULT]
-converter.representative_dataset = representative_data_gen
-converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
-quantized_tflite_model = converter.convert()
+# converter.optimizations = [tf.lite.Optimize.DEFAULT]
+# converter.representative_dataset = representative_data_gen
+# converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
+# quantized_tflite_model = converter.convert()
 
-tflite_model_path = './Models/' + model_name + "_int8.tflite"
-with open(tflite_model_path, 'wb') as f:
-    f.write(quantized_tflite_model)
-    print(f"{model_name}_int8.tflite is saved.")
+# tflite_model_path = './Models/' + model_name + "_int8.tflite"
+# with open(tflite_model_path, 'wb') as f:
+#     f.write(quantized_tflite_model)
+#     print(f"{model_name}_int8.tflite is saved.")
 
-print('Tf_lite Models also saved')
+# print('Tf_lite Models also saved')
 
 #======================================================
 # Evaluated TfLite Model
 #======================================================
 
-def evaluate_model(model_path, test_lidar, test_data):
-    """Evaluate TfLite model."""
-    # Load the TFLite model
-    interpreter = tf.lite.Interpreter(model_path=model_path)
-    interpreter.allocate_tensors()
-    input_index = interpreter.get_input_details()[0]["index"]
-    output_details = interpreter.get_output_details()
+# def evaluate_model(model_path, test_lidar, test_data):
+#     """Evaluate TfLite model."""
+#     # Load the TFLite model
+#     interpreter = tf.lite.Interpreter(model_path=model_path)
+#     interpreter.allocate_tensors()
+#     input_index = interpreter.get_input_details()[0]["index"]
+#     output_details = interpreter.get_output_details()
 
-    output_lidar = test_lidar
-    output_servo = []
-    output_speed = []
+#     output_lidar = test_lidar
+#     output_servo = []
+#     output_speed = []
 
-    period = 1.0 / hz
+#     period = 1.0 / hz
 
-    # Initialize a list to store inference times in microseconds
-    inference_times_micros = []
+#     # Initialize a list to store inference times in microseconds
+#     inference_times_micros = []
 
-    # Iterate through the lidar data
-    for lidar_data in output_lidar:
-        # Preprocess lidar data for inference
-        lidar_data = np.expand_dims(lidar_data, axis=-1).astype(np.float32)
-        lidar_data = np.expand_dims(lidar_data, axis=0)
+#     # Iterate through the lidar data
+#     for lidar_data in output_lidar:
+#         # Preprocess lidar data for inference
+#         lidar_data = np.expand_dims(lidar_data, axis=-1).astype(np.float32)
+#         lidar_data = np.expand_dims(lidar_data, axis=0)
 
-        # Check for empty lidar data
-        if lidar_data is None:
-            continue
+#         # Check for empty lidar data
+#         if lidar_data is None:
+#             continue
 
-        # Measure inference time
-        ts = time.time()
-        interpreter.set_tensor(input_index, lidar_data)
-        interpreter.invoke()
-        output = interpreter.get_tensor(output_details[0]['index'])
-        dur = time.time() - ts
+#         # Measure inference time
+#         ts = time.time()
+#         interpreter.set_tensor(input_index, lidar_data)
+#         interpreter.invoke()
+#         output = interpreter.get_tensor(output_details[0]['index'])
+#         dur = time.time() - ts
 
-        # Convert inference time to microseconds
-        inference_time_micros = dur * 1e6
-        inference_times_micros.append(inference_time_micros)
+#         # Convert inference time to microseconds
+#         inference_time_micros = dur * 1e6
+#         inference_times_micros.append(inference_time_micros)
 
-        # Print inference time information
-        if dur > period:
-            print("%.3f: took %.2f microseconds - deadline miss." % (dur, int(dur * 1000000)))
+#         # Print inference time information
+#         if dur > period:
+#             print("%.3f: took %.2f microseconds - deadline miss." % (dur, int(dur * 1000000)))
 
-        # Extract servo and speed output from the model
-        servo = output[0, 0]
-        speed = output[0, 1]
+#         # Extract servo and speed output from the model
+#         servo = output[0, 0]
+#         speed = output[0, 1]
 
-        # Append output servo and speed
-        output_servo.append(servo)
-        output_speed.append(speed)
+#         # Append output servo and speed
+#         output_servo.append(servo)
+#         output_speed.append(speed)
 
-    output_lidar = np.asarray(output_lidar)
-    output_servo = np.asarray(output_servo)
-    output_speed = np.asarray(output_speed)
-    assert len(output_lidar) == len(output_servo) == len(output_speed)
-    output = np.concatenate((output_servo[:, np.newaxis], output_speed[:, np.newaxis]), axis=1)
-    y_pred = output
+#     output_lidar = np.asarray(output_lidar)
+#     output_servo = np.asarray(output_servo)
+#     output_speed = np.asarray(output_speed)
+#     assert len(output_lidar) == len(output_servo) == len(output_speed)
+#     output = np.concatenate((output_servo[:, np.newaxis], output_speed[:, np.newaxis]), axis=1)
+#     y_pred = output
 
-    # Calculate average and maximum inference times in microseconds
-    arr = np.array(inference_times_micros)
-    perc99 = np.percentile(arr, 99)
-    arr = arr[arr < perc99]
-    average_inference_time_micros = np.mean(arr)
-    max_inference_time_micros = np.max(arr)
+#     # Calculate average and maximum inference times in microseconds
+#     arr = np.array(inference_times_micros)
+#     perc99 = np.percentile(arr, 99)
+#     arr = arr[arr < perc99]
+#     average_inference_time_micros = np.mean(arr)
+#     max_inference_time_micros = np.max(arr)
 
-    # Print inference time statistics
-    print("Model: ", model_path)
-    print("Average Inference Time: %.2f microseconds" % average_inference_time_micros)
-    print("Maximum Inference Time: %.2f microseconds" % max_inference_time_micros)
+#     # Print inference time statistics
+#     print("Model: ", model_path)
+#     print("Average Inference Time: %.2f microseconds" % average_inference_time_micros)
+#     print("Maximum Inference Time: %.2f microseconds" % max_inference_time_micros)
 
-    return y_pred, inference_times_micros
+#     return y_pred, inference_times_micros
 
-# Initialize empty lists to store results for each model
-all_inference_times_micros = []
-for model_name in model_files:
-    y_pred, inference_times_micros = evaluate_model(model_name, test_lidar, test_data)
-    all_inference_times_micros.append(inference_times_micros)
+# # Initialize empty lists to store results for each model
+# all_inference_times_micros = []
+# for model_name in model_files:
+#     y_pred, inference_times_micros = evaluate_model(model_name, test_lidar, test_data)
+#     all_inference_times_micros.append(inference_times_micros)
 
-    print(f'Huber Loss for {model_name}: {huber_loss(test_data, y_pred)}\n')
+#     print(f'Huber Loss for {model_name}: {huber_loss(test_data, y_pred)}\n')
 
-# Plot inference times
-plt.figure()
-for inference_times_micros in all_inference_times_micros:
-    arr = np.array(inference_times_micros)
-    perc99 = np.percentile(arr, 99)
-    arr = arr[arr < perc99]
-    plt.plot(arr)
-plt.xlabel('Inference Iteration')
-plt.ylabel('Inference Time (microseconds)')
-plt.title('Inference Time per Iteration')
-plt.legend(model_files)
+# # Plot inference times
+# plt.figure()
+# for inference_times_micros in all_inference_times_micros:
+#     arr = np.array(inference_times_micros)
+#     perc99 = np.percentile(arr, 99)
+#     arr = arr[arr < perc99]
+#     plt.plot(arr)
+# plt.xlabel('Inference Iteration')
+# plt.ylabel('Inference Time (microseconds)')
+# plt.title('Inference Time per Iteration')
+# plt.legend(model_files)
 
 print('End')
