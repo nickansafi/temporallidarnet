@@ -67,9 +67,12 @@ down_sample_param = 2 # Down-sample Lidar data
 lr = 5e-5
 loss_function = 'huber'
 batch_size = 64
-num_epochs = 20
+num_epochs = 1
 hz = 40
-
+if not os.path.exists("./Models"):
+    os.mkdir("Models")
+if not os.path.exists("./Figures"):
+    os.mkdir("Figures")
 # Initialize variables for min and max speed
 max_speed = 0
 min_speed = 0
@@ -188,7 +191,7 @@ oldlidar = tf.stack([[i, i, i] for i in lidar])
 oldtest_lidar = tf.stack([[i, i, i] for i in test_lidar])
 newlidar = []
 try:
-    for i in range(len(lidar)-189):
+    for i in range(len(lidar)-125):
         newlidar.append([lidar[i], lidar[i+62], lidar[i+125]])
 except:
     raise ValueError("Wrong timesteps.")
@@ -223,7 +226,7 @@ print(model.summary())
 # Model Fit
 #======================================================
 start_time = time.time()
-ydata = np.concatenate((servo[:, np.newaxis], speed[:, np.newaxis]), axis=1)[189:]
+ydata = np.concatenate((servo[:, np.newaxis], speed[:, np.newaxis]), axis=1)[125:]
 test_data = ydata
 history = model.fit(lidar, ydata,
                     epochs=num_epochs, batch_size=batch_size, validation_data=(test_lidar, test_data),)
